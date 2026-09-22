@@ -260,18 +260,19 @@ registry metadata maps each key to its fallback, conditional warning, effective 
 and default method. With both Instagram keys pending, plain Connect uses Page `page-tools`; reviewers
 and app roles can still select `page-messages` or direct Instagram Login explicitly. Removing a key
 changes the API, CLI, agent, and dashboard experience together after restart.
-Meta initially returns a long-lived **user** token, but Instagram Graph operations—especially the
-Messaging API—must act through the Facebook Page linked to the selected professional account. The
-Instagram provider therefore declares a resource-token lookup. On account selection,
+Meta initially returns a long-lived **user** token, but Facebook Page operations and Instagram Graph
+operations through Facebook Login must act through the selected or linked Facebook Page. Both
+providers therefore declare resource-token lookups. On Page or Instagram-account selection,
 `select_connection_resource()` privately resolves the linked Page token, stores it as
 `page_access_token` inside the same encrypted OAuth blob (retaining `access_token` for discovery),
-and the provisioned tool's generic OAuth binding injects that derived field. Provider metadata maps
-the linked Page id into the encrypted `page_id` context field and declares a generic resource-setup
-request. For Instagram, that request subscribes the Page to the app's
+and the provisioned tool's generic OAuth binding injects that derived field. Facebook matches the
+selected Page directly; Instagram maps the professional-account id through its linked Page and
+records that Page id in the encrypted `page_id` context field. Instagram also declares a generic
+resource-setup request that subscribes the Page to the app's
 `messages,messaging_postbacks` fields. The setup is scope-gated, so read/post-only connections do
 not attempt it. Provider discovery and setup HTTP calls run after the read database session closes;
 the result is written in a new short transaction. Resource listings and
-connection views never include the Page token; existing Instagram connections must reconnect or
+connection views never include the Page token; existing Facebook and Instagram connections must
 reselect their account once to populate it. The token and object id are separate concerns: Instagram
 profile/media operations still target the Instagram account id, while Facebook-login inbox sync is
 the Page messaging surface—`/{page_id}/conversations?platform=instagram` for listing and

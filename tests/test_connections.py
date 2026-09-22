@@ -273,6 +273,35 @@ async def test_business_owned_pages_join_the_facebook_picker(clients: AsyncClien
         "the primary listing's rows keep first position"
 
 
+@pytest.mark.parametrize(("page_id", "expected_token"), [
+    ("PAGE-DIRECT", "PAGE-TOKEN-DIRECT"),
+    ("PAGE-CLIENT", "PAGE-TOKEN-CLIENT"),
+])
+async def test_facebook_selection_stores_and_binds_the_page_token(
+    clients: AsyncClient, treg_meta_app, monkeypatch, page_id, expected_token,
+):
+    """Facebook consent returns a user token, but Page calls must inject the selected Page token."""
+    _meta_test_provider(monkeypatch, "facebook")
+    st = await _connect_byo(clients, provider="facebook", name="facebook")
+    sid = st["secret_id"]
+
+    r = await clients.post(f"/connections/{sid}/resource", json={
+        "resource_ref": page_id, "resource_name": "chosen_page",
+    })
+    assert r.status_code == 200, r.text
+    assert expected_token not in r.text
+
+    async with session_maker() as db:
+        secret = await db.get(Secret, sid)
+        blob = json.loads(crypto.decrypt(secret.value))
+        assert blob["access_token"] == "META-TOKEN"
+        assert blob["page_access_token"] == expected_token
+        tool = (await db.execute(select(Tool).where(
+            Tool.org_id == secret.org_id, Tool.name == "facebook"
+        ))).scalars().one()
+        assert tool.bindings[0]["secret_field"] == "page_access_token"
+
+
 async def test_business_owned_instagram_accounts_join_the_picker(clients: AsyncClient, treg_meta_app, monkeypatch):
     """Same walk through the Instagram lens: Business-owned Pages contribute their linked
     professional accounts, a Page without one drops out instead of surviving as an id-less
